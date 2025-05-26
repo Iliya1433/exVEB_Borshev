@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}{{ collection.name }} - Электронная библиотека{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1>{{ collection.name }}</h1>
+            {% if collection.description %}
+            <p class="text-muted">{{ collection.description }}</p>
+            {% endif %}
+        </div>
+        <a href="{{ url_for('collections') }}" class="btn btn-outline-secondary">Назад к подборкам</a>
+    </div>
+
+    {% if collection.books %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for book in collection.books %}
+        <div class="col">
+            <div class="card h-100">
+                {% if book.cover %}
+                <img src="{{ url_for('get_cover', cover_id=book.cover.id) }}" class="card-img-top book-cover" alt="Обложка книги {{ book.title }}">
+                {% else %}
+                <div class="card-img-top bg-light d-flex align-items-center justify-content-center book-cover">
+                    <span class="text-muted">Нет обложки</span>
+                </div>
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">{{ book.title }}</h5>
+                    <p class="card-text text-muted">{{ book.author }}</p>
+                    <div class="book-description">
+                        {{ book.description }}
+                    </div>
+                    <p class="card-text">
+                        <small class="text-muted">
+                            Год: {{ book.year }}<br>
+                            Издательство: {{ book.publisher }}<br>
+                            Страниц: {{ book.pages }}
+                        </small>
+                    </p>
+                    <div class="mb-2">
+                        {% for genre in book.genres %}
+                        <span class="badge bg-secondary me-1">{{ genre.name }}</span>
+                        {% endfor %}
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('book_detail', book_id=book.id) }}" class="btn btn-primary">Подробнее</a>
+                        <button type="button" class="btn btn-outline-danger" onclick="removeFromCollection({{ book.id }})">
+                            Удалить из подборки
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        В этой подборке пока нет книг. Добавьте книги из каталога!
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function removeFromCollection(bookId) {
+    if (confirm('Вы уверены, что хотите удалить эту книгу из подборки?')) {
+        fetch(`{{ url_for('remove_from_collection', collection_id=collection.id, book_id=0) }}`.replace('0', bookId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.error || 'Произошла ошибка при удалении книги из подборки');
+            }
+        })
+        .catch(error => {
+            alert('Произошла ошибка при удалении книги из подборки');
+        });
+    }
+}
+</script>
+{% endblock %} 

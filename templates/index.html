@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Главная - Электронная библиотека{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Книги</h1>
+    
+    {% if current_user.is_authenticated and current_user.role.name == 'Администратор' %}
+    <div class="mb-4">
+        <a href="{{ url_for('add_book') }}" class="btn btn-primary">Добавить книгу</a>
+    </div>
+    {% endif %}
+    
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for book in books.items %}
+        <div class="col">
+            <div class="card h-100">
+                {% if book.cover %}
+                <img src="{{ url_for('get_cover', cover_id=book.cover.id) }}" class="card-img-top book-cover" alt="Обложка книги {{ book.title }}">
+                {% else %}
+                <div class="card-img-top bg-light d-flex align-items-center justify-content-center book-cover">
+                    <span class="text-muted">Нет обложки</span>
+                </div>
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">{{ book.title }}</h5>
+                    <p class="card-text text-muted">{{ book.author }}</p>
+                    <div class="book-description">
+                        {{ book.description }}
+                    </div>
+                    <p class="card-text">
+                        <small class="text-muted">
+                            Год: {{ book.year }}<br>
+                            Издательство: {{ book.publisher }}<br>
+                            Страниц: {{ book.pages }}
+                        </small>
+                    </p>
+                    <div class="mb-2">
+                        {% for genre in book.genres %}
+                        <span class="badge bg-secondary me-1">{{ genre.name }}</span>
+                        {% endfor %}
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('book_detail', book_id=book.id) }}" class="btn btn-primary">Подробнее</a>
+                        {% if current_user.is_authenticated %}
+                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#reviewModal{{ book.id }}">
+                            Оставить отзыв
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if current_user.is_authenticated %}
+        <!-- Модальное окно для отзыва -->
+        <div class="modal fade" id="reviewModal{{ book.id }}" tabindex="-1" aria-labelledby="reviewModalLabel{{ book.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="reviewModalLabel{{ book.id }}">Оставить отзыв</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form action="{{ url_for('add_review', book_id=book.id) }}" method="post">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="rating{{ book.id }}" class="form-label">Оценка</label>
+                                <select class="form-select" id="rating{{ book.id }}" name="rating" required>
+                                    <option value="">Выберите оценку</option>
+                                    <option value="1">1 - Ужасно</option>
+                                    <option value="2">2 - Плохо</option>
+                                    <option value="3">3 - Нормально</option>
+                                    <option value="4">4 - Хорошо</option>
+                                    <option value="5">5 - Отлично</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="text{{ book.id }}" class="form-label">Текст отзыва</label>
+                                <textarea class="form-control" id="text{{ book.id }}" name="text" rows="3" required></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                            <button type="submit" class="btn btn-primary">Отправить</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    
+    {% if books.pages > 1 %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if books.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('index', page=books.prev_num) }}">Предыдущая</a>
+            </li>
+            {% endif %}
+            
+            {% for page_num in books.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                {% if page_num %}
+                    {% if page_num == books.page %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('index', page=page_num) }}">{{ page_num }}</a>
+                    </li>
+                    {% endif %}
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if books.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('index', page=books.next_num) }}">Следующая</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %} 

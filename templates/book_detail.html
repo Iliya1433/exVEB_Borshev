@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}{{ book.title }} - Электронная библиотека{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/marked@4.0.0/marked.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-4">
+            {% if book.cover %}
+            <img src="{{ url_for('get_cover', cover_id=book.cover.id) }}" class="img-fluid rounded" alt="Обложка книги {{ book.title }}">
+            {% else %}
+            <div class="bg-light rounded d-flex align-items-center justify-content-center" style="height: 400px;">
+                <span class="text-muted">Нет обложки</span>
+            </div>
+            {% endif %}
+        </div>
+        <div class="col-md-8">
+            <h1 class="mb-3">{{ book.title }}</h1>
+            <p class="text-muted h5 mb-4">{{ book.author }}</p>
+            
+            <div class="book-description mb-4">
+                {{ book.description }}
+            </div>
+            
+            <div class="mb-4">
+                <h5>Информация о книге:</h5>
+                <ul class="list-unstyled">
+                    <li><strong>Год издания:</strong> {{ book.year }}</li>
+                    <li><strong>Издательство:</strong> {{ book.publisher }}</li>
+                    <li><strong>Количество страниц:</strong> {{ book.pages }}</li>
+                </ul>
+            </div>
+            
+            <div class="mb-4">
+                <h5>Жанры:</h5>
+                {% for genre in book.genres %}
+                <span class="badge bg-secondary me-1">{{ genre.name }}</span>
+                {% endfor %}
+            </div>
+            
+            {% if current_user.is_authenticated %}
+                {% if current_user.role.name == 'Пользователь' %}
+                <div class="mb-4">
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addToCollectionModal">
+                        Добавить в подборку
+                    </button>
+                </div>
+                {% endif %}
+                
+                {% if current_user.role.name == 'Администратор' %}
+                <div class="mb-4">
+                    <a href="{{ url_for('edit_book', book_id=book.id) }}" class="btn btn-primary">Редактировать</a>
+                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                        Удалить
+                    </button>
+                </div>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-12">
+            <h3>Отзывы</h3>
+            {% if current_user.is_authenticated %}
+            <button type="button" class="btn btn-primary mb-4" data-bs-toggle="modal" data-bs-target="#reviewModal">
+                Оставить отзыв
+            </button>
+            {% endif %}
+
+            {% if book.reviews %}
+            <div class="list-group">
+                {% for review in book.reviews %}
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">{{ review.user.last_name }} {{ review.user.first_name }}</h6>
+                        <div>
+                            {% for i in range(review.rating) %}
+                            <i class="bi bi-star-fill text-warning"></i>
+                            {% endfor %}
+                            {% for i in range(5 - review.rating) %}
+                            <i class="bi bi-star text-warning"></i>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <p class="mb-0">{{ review.text }}</p>
+                    <small class="text-muted">{{ review.created_at.strftime('%d.%m.%Y %H:%M') }}</small>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">Пока нет отзывов</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if current_user.is_authenticated and current_user.role.name == 'Пользователь' %}
+<!-- Модальное окно для добавления в подборку -->
+<div class="modal fade" id="addToCollectionModal" tabindex="-1" aria-labelledby="addToCollectionModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addToCollectionModalLabel">Добавить в подборку</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addToCollectionForm">
+                    <div class="mb-3">
+                        <label for="collection" class="form-label">Выберите подборку</label>
+                        <select class="form-select" id="collection" name="collection_id" required>
+                            <option value="">Выберите подборку...</option>
+                            {% for collection in current_user.collections %}
+                            <option value="{{ collection.id }}">{{ collection.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="addToCollection()">Добавить</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if current_user.is_authenticated %}
+<!-- Модальное окно для отзыва -->
+<div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reviewModalLabel">Оставить отзыв</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('add_review', book_id=book.id) }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="rating" class="form-label">Оценка</label>
+                        <select class="form-select" id="rating" name="rating" required>
+                            <option value="">Выберите оценку</option>
+                            <option value="1">1 - Ужасно</option>
+                            <option value="2">2 - Плохо</option>
+                            <option value="3">3 - Нормально</option>
+                            <option value="4">4 - Хорошо</option>
+                            <option value="5">5 - Отлично</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="text" class="form-label">Текст отзыва</label>
+                        <textarea class="form-control" id="text" name="text" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Отправить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if current_user.is_authenticated and current_user.role.name == 'Администратор' %}
+<!-- Модальное окно для подтверждения удаления -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Подтверждение удаления</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Вы уверены, что хотите удалить книгу "{{ book.title }}"?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <form action="{{ url_for('delete_book', book_id=book.id) }}" method="post" class="d-inline">
+                    <button type="submit" class="btn btn-danger">Удалить</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked@4.0.0/marked.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Инициализация Markdown
+    document.querySelectorAll('.markdown-body').forEach(function(element) {
+        element.innerHTML = marked.parse(element.innerHTML);
+    });
+});
+
+{% if current_user.is_authenticated and current_user.role.name == 'Пользователь' %}
+function addToCollection() {
+    const form = document.getElementById('addToCollectionForm');
+    const formData = new FormData(form);
+    const collectionId = formData.get('collection_id');
+    
+    if (!collectionId) {
+        alert('Пожалуйста, выберите подборку');
+        return;
+    }
+    
+    fetch(`{{ url_for('add_to_collection', collection_id=0, book_id=book.id) }}`.replace('0', collectionId), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Произошла ошибка при добавлении книги в подборку');
+        }
+    })
+    .catch(error => {
+        alert('Произошла ошибка при добавлении книги в подборку');
+    });
+}
+{% endif %}
+</script>
+{% endblock %} 
